@@ -8,6 +8,9 @@ pub use serialize::*;
 use crate::record_batch::RecordBatch;
 use crate::{datatypes::Schema, error::Result};
 
+// expose the writer for convenience
+pub use csv::{Writer, WriterBuilder};
+
 /// Creates serializers that iterate over each column of `batch` and serialize each item according
 /// to `options`.
 fn new_serializers<'a>(
