@@ -40,7 +40,7 @@ pub enum Operator {
     Neq,
 }
 
-pub fn compare(lhs: &dyn Array, rhs: &dyn Array, operator: Operator) -> Result<BooleanArray> {
+pub fn compare(lhs: &dyn Array, operator: Operator, rhs: &dyn Array) -> Result<BooleanArray> {
     let data_type = lhs.data_type();
     if data_type != rhs.data_type() {
         return Err(ArrowError::NotYetImplemented(
@@ -230,10 +230,10 @@ mod tests {
             let array = new_null_array(d1.clone(), 10);
             if can_compare(&d1) {
                 let op = Operator::Eq;
-                assert!(compare(array.as_ref(), array.as_ref(), op).is_ok());
+                assert!(compare(array.as_ref(), op, array.as_ref()).is_ok());
             } else {
                 let op = Operator::Eq;
-                assert!(compare(array.as_ref(), array.as_ref(), op).is_err());
+                assert!(compare(array.as_ref(), op, array.as_ref()).is_err());
             }
         });
     }
