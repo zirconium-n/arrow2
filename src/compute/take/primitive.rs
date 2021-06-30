@@ -51,26 +51,26 @@ fn take_values_validity<
     indices: &[I],
     get: F,
 ) -> Result<(Buffer<T>, Option<Bitmap>)> {
-    let mut null = MutableBitmap::with_capacity(indices.len());
+    let mut validity = MutableBitmap::with_capacity(indices.len());
 
-    let null_values = values.validity().as_ref().unwrap();
+    let validity_values = values.validity().as_ref().unwrap();
 
     let values_values = values.values();
 
     let values = indices.iter().map(|index| {
         let index = maybe_usize::<I>(*index)?;
 
-        let (value, is_valid) = (get)(values_values, null_values, index)?;
+        let (value, is_valid) = (get)(values_values, validity_values, index)?;
         if is_valid {
-            null.push(true);
+            validity.push(true);
         } else {
-            null.push(false);
+            validity.push(false);
         }
         Result::Ok(value)
     });
     let buffer = MutableBuffer::try_from_trusted_len_iter(values)?;
 
-    Ok((buffer.into(), null.into()))
+    Ok((buffer.into(), validity.into()))
 }
 
 // take implementation when only indices contain nulls
@@ -102,7 +102,7 @@ fn take_values_indices_validity<
     indices: &PrimitiveArray<I>,
     get: F,
 ) -> Result<(Buffer<T>, Option<Bitmap>)> {
-    let mut bitmap = MutableBitmap::with_capacity(indices.len());
+    let mut validity = MutableBitmap::with_capacity(indices.len());
 
     let values_validity = values.validity().as_ref().unwrap();
 
@@ -111,16 +111,16 @@ fn take_values_indices_validity<
         Some(index) => {
             let index = maybe_usize::<I>(*index)?;
             let (value, is_valid) = get(values_values, values_validity, index)?;
-            bitmap.push(is_valid);
+            validity.push(is_valid);
             Result::Ok(value)
         }
         None => {
-            bitmap.push(false);
+            validity.push(false);
             Ok(T::default())
         }
     });
     let buffer = MutableBuffer::try_from_trusted_len_iter(values)?;
-    Ok((buffer.into(), bitmap.into()))
+    Ok((buffer.into(), validity.into()))
 }
 
 /// `take` implementation for primitive arrays
@@ -131,16 +131,16 @@ pub fn take<T: NativeType, I: Index>(
     let indices_has_validity = indices.null_count() > 0;
     let values_has_validity = values.null_count() > 0;
     let (buffer, validity) = match (values_has_validity, indices_has_validity) {
-        (false, false) => take_no_validity(values.values(), indices.values(), |slice, index| {
-            slice
+        (false, false) => take_no_validity(values.values(), indices.values(), |values, index| {
+            values
                 .get(index)
                 .copied()
                 .ok_or(ArrowError::KeyOverflowError)
         })?,
         (true, false) => {
-            take_values_validity(values, indices.values(), |slice, validity, index| {
+            take_values_validity(values, indices.values(), |values, validity, index| {
                 Ok((
-                    slice
+                    values
                         .get(index)
                         .copied()
                         .ok_or(ArrowError::KeyOverflowError)?,
@@ -148,21 +148,23 @@ pub fn take<T: NativeType, I: Index>(
                 ))
             })?
         }
-        (false, true) => take_indices_validity(values.values(), indices, |slice, index| {
-            slice
+        (false, true) => take_indices_validity(values.values(), indices, |values, index| {
+            values
                 .get(index)
                 .copied()
                 .ok_or(ArrowError::KeyOverflowError)
         })?,
-        (true, true) => take_values_indices_validity(values, indices, |slice, validity, index| {
-            Ok((
-                slice
-                    .get(index)
-                    .copied()
-                    .ok_or(ArrowError::KeyOverflowError)?,
-                validity.get(index).ok_or(ArrowError::KeyOverflowError)?,
-            ))
-        })?,
+        (true, true) => {
+            take_values_indices_validity(values, indices, |values, validity, index| {
+                Ok((
+                    values
+                        .get(index)
+                        .copied()
+                        .ok_or(ArrowError::KeyOverflowError)?,
+                    validity.get(index).ok_or(ArrowError::KeyOverflowError)?,
+                ))
+            })?
+        }
     };
 
     Ok(PrimitiveArray::<T>::from_data(
@@ -182,20 +184,22 @@ pub unsafe fn take_unchecked<T: NativeType, I: Index>(
     let indices_has_validity = indices.null_count() > 0;
     let values_has_validity = values.null_count() > 0;
     let (buffer, validity) = match (values_has_validity, indices_has_validity) {
-        (false, false) => take_no_validity(values.values(), indices.values(), |slice, index| {
-            Ok(*slice.get_unchecked(index))
+        (false, false) => take_no_validity(values.values(), indices.values(), |values, index| {
+            Ok(*values.get_unchecked(index))
         })?,
         (true, false) => {
-            take_values_validity(values, indices.values(), |slice, validity, index| {
-                Ok((*slice.get_unchecked(index), validity.get_unchecked(index)))
+            take_values_validity(values, indices.values(), |values, validity, index| {
+                Ok((*values.get_unchecked(index), validity.get_unchecked(index)))
             })?
         }
-        (false, true) => take_indices_validity(values.values(), indices, |slice, index| {
-            Ok(*slice.get_unchecked(index))
+        (false, true) => take_indices_validity(values.values(), indices, |values, index| {
+            Ok(*values.get_unchecked(index))
         })?,
-        (true, true) => take_values_indices_validity(values, indices, |slice, validity, index| {
-            Ok((*slice.get_unchecked(index), validity.get_unchecked(index)))
-        })?,
+        (true, true) => {
+            take_values_indices_validity(values, indices, |values, validity, index| {
+                Ok((*values.get_unchecked(index), validity.get_unchecked(index)))
+            })?
+        }
     };
 
     Ok(PrimitiveArray::<T>::from_data(

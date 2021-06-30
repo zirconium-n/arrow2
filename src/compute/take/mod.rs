@@ -148,7 +148,7 @@ pub unsafe fn take_unchecked<O: Index>(
         DataType::Null => Ok(Box::new(NullArray::from_data(indices.len()))),
         DataType::Boolean => {
             let values = values.as_any().downcast_ref::<BooleanArray>().unwrap();
-            Ok(Box::new(boolean::take::<O>(values, indices)?))
+            Ok(Box::new(boolean::take_unchecked::<O>(values, indices)?))
         }
         DataType::Int8 => downcast_take!(i8, values, indices, take_unchecked),
         DataType::Int16 => downcast_take!(i16, values, indices, take_unchecked),

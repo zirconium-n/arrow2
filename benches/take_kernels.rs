@@ -93,6 +93,9 @@ fn add_benchmark(c: &mut Criterion) {
     c.bench_function("take bool nulls 1024", |b| {
         b.iter(|| bench_take(&values, &indices))
     });
+    c.bench_function("take_unchecked bool nulls 1024", |b| {
+        b.iter(|| criterion::black_box(unsafe { take::take_unchecked(&values, &indices).unwrap() }))
+    });
 
     let values = create_string_array::<i32>(512, 0.0);
     let indices = create_random_index(512, 0.0);
