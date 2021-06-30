@@ -24,6 +24,7 @@ use crate::{
     },
     datatypes::{DataType, IntervalUnit},
     error::{ArrowError, Result},
+    types::days_ms,
 };
 
 pub use crate::array::Index;
@@ -38,12 +39,12 @@ mod structure;
 mod utf8;
 
 macro_rules! downcast_take {
-    ($type: ty, $values: expr, $indices: expr) => {{
+    ($type: ty, $values: expr, $indices: expr, $fn: ident) => {{
         let values = $values
             .as_any()
             .downcast_ref::<PrimitiveArray<$type>>()
             .expect("Unable to downcast to a primitive array");
-        Ok(Box::new(primitive::take::<$type, _>(&values, $indices)?))
+        Ok(Box::new(primitive::$fn::<$type, _>(&values, $indices)?))
     }};
 }
 
@@ -57,6 +58,7 @@ macro_rules! downcast_dict_take {
     }};
 }
 
+/// Takes `indices` from `values`, returning a new array with the taken values.
 pub fn take<O: Index>(values: &dyn Array, indices: &PrimitiveArray<O>) -> Result<Box<dyn Array>> {
     if indices.len() == 0 {
         return Ok(new_empty_array(values.data_type().clone()));
@@ -68,25 +70,110 @@ pub fn take<O: Index>(values: &dyn Array, indices: &PrimitiveArray<O>) -> Result
             let values = values.as_any().downcast_ref::<BooleanArray>().unwrap();
             Ok(Box::new(boolean::take::<O>(values, indices)?))
         }
-        DataType::Int8 => downcast_take!(i8, values, indices),
-        DataType::Int16 => downcast_take!(i16, values, indices),
+        DataType::Int8 => downcast_take!(i8, values, indices, take),
+        DataType::Int16 => downcast_take!(i16, values, indices, take),
         DataType::Int32
         | DataType::Date32
         | DataType::Time32(_)
-        | DataType::Interval(IntervalUnit::YearMonth) => downcast_take!(i32, values, indices),
+        | DataType::Interval(IntervalUnit::YearMonth) => downcast_take!(i32, values, indices, take),
         DataType::Int64
         | DataType::Date64
         | DataType::Time64(_)
         | DataType::Duration(_)
-        | DataType::Timestamp(_, _) => downcast_take!(i64, values, indices),
-        DataType::UInt8 => downcast_take!(u8, values, indices),
-        DataType::UInt16 => downcast_take!(u16, values, indices),
-        DataType::UInt32 => downcast_take!(u32, values, indices),
-        DataType::UInt64 => downcast_take!(u64, values, indices),
+        | DataType::Timestamp(_, _) => downcast_take!(i64, values, indices, take),
+        DataType::Interval(IntervalUnit::DayTime) => downcast_take!(days_ms, values, indices, take),
+        DataType::UInt8 => downcast_take!(u8, values, indices, take),
+        DataType::UInt16 => downcast_take!(u16, values, indices, take),
+        DataType::UInt32 => downcast_take!(u32, values, indices, take),
+        DataType::UInt64 => downcast_take!(u64, values, indices, take),
         DataType::Float16 => unreachable!(),
-        DataType::Float32 => downcast_take!(f32, values, indices),
-        DataType::Float64 => downcast_take!(f64, values, indices),
-        DataType::Decimal(_, _) => downcast_take!(i128, values, indices),
+        DataType::Float32 => downcast_take!(f32, values, indices, take),
+        DataType::Float64 => downcast_take!(f64, values, indices, take),
+        DataType::Decimal(_, _) => downcast_take!(i128, values, indices, take),
+        DataType::Utf8 => {
+            let values = values.as_any().downcast_ref::<Utf8Array<i32>>().unwrap();
+            Ok(Box::new(utf8::take::<i32, _>(values, indices)?))
+        }
+        DataType::LargeUtf8 => {
+            let values = values.as_any().downcast_ref::<Utf8Array<i64>>().unwrap();
+            Ok(Box::new(utf8::take::<i64, _>(values, indices)?))
+        }
+        DataType::Binary => {
+            let values = values.as_any().downcast_ref::<BinaryArray<i32>>().unwrap();
+            Ok(Box::new(binary::take::<i32, _>(values, indices)?))
+        }
+        DataType::LargeBinary => {
+            let values = values.as_any().downcast_ref::<BinaryArray<i64>>().unwrap();
+            Ok(Box::new(binary::take::<i64, _>(values, indices)?))
+        }
+        DataType::Dictionary(key_type, _) => match key_type.as_ref() {
+            DataType::Int8 => downcast_dict_take!(i8, values, indices),
+            DataType::Int16 => downcast_dict_take!(i16, values, indices),
+            DataType::Int32 => downcast_dict_take!(i32, values, indices),
+            DataType::Int64 => downcast_dict_take!(i64, values, indices),
+            DataType::UInt8 => downcast_dict_take!(u8, values, indices),
+            DataType::UInt16 => downcast_dict_take!(u16, values, indices),
+            DataType::UInt32 => downcast_dict_take!(u32, values, indices),
+            DataType::UInt64 => downcast_dict_take!(u64, values, indices),
+            _ => unreachable!(),
+        },
+        DataType::Struct(_) => {
+            let array = values.as_any().downcast_ref::<StructArray>().unwrap();
+            Ok(Box::new(structure::take::<_>(array, indices)?))
+        }
+        DataType::List(_) => {
+            let array = values.as_any().downcast_ref::<ListArray<i32>>().unwrap();
+            Ok(Box::new(list::take::<i32, O>(array, indices)?))
+        }
+        DataType::LargeList(_) => {
+            let array = values.as_any().downcast_ref::<ListArray<i64>>().unwrap();
+            Ok(Box::new(list::take::<i64, O>(array, indices)?))
+        }
+        t => unimplemented!("Take not supported for data type {:?}", t),
+    }
+}
+
+/// Takes `indices` from `values`, returning a new array with the taken values.
+/// # Safety
+/// The caller must ensure that all valid indices are smaller than `values.len()`.
+pub unsafe fn take_unchecked<O: Index>(
+    values: &dyn Array,
+    indices: &PrimitiveArray<O>,
+) -> Result<Box<dyn Array>> {
+    if indices.len() == 0 {
+        return Ok(new_empty_array(values.data_type().clone()));
+    }
+
+    match values.data_type() {
+        DataType::Null => Ok(Box::new(NullArray::from_data(indices.len()))),
+        DataType::Boolean => {
+            let values = values.as_any().downcast_ref::<BooleanArray>().unwrap();
+            Ok(Box::new(boolean::take::<O>(values, indices)?))
+        }
+        DataType::Int8 => downcast_take!(i8, values, indices, take_unchecked),
+        DataType::Int16 => downcast_take!(i16, values, indices, take_unchecked),
+        DataType::Int32
+        | DataType::Date32
+        | DataType::Time32(_)
+        | DataType::Interval(IntervalUnit::YearMonth) => {
+            downcast_take!(i32, values, indices, take_unchecked)
+        }
+        DataType::Int64
+        | DataType::Date64
+        | DataType::Time64(_)
+        | DataType::Duration(_)
+        | DataType::Timestamp(_, _) => downcast_take!(i64, values, indices, take_unchecked),
+        DataType::Interval(IntervalUnit::DayTime) => {
+            downcast_take!(days_ms, values, indices, take_unchecked)
+        }
+        DataType::UInt8 => downcast_take!(u8, values, indices, take_unchecked),
+        DataType::UInt16 => downcast_take!(u16, values, indices, take_unchecked),
+        DataType::UInt32 => downcast_take!(u32, values, indices, take_unchecked),
+        DataType::UInt64 => downcast_take!(u64, values, indices, take_unchecked),
+        DataType::Float16 => unreachable!(),
+        DataType::Float32 => downcast_take!(f32, values, indices, take_unchecked),
+        DataType::Float64 => downcast_take!(f64, values, indices, take_unchecked),
+        DataType::Decimal(_, _) => downcast_take!(i128, values, indices, take_unchecked),
         DataType::Utf8 => {
             let values = values.as_any().downcast_ref::<Utf8Array<i32>>().unwrap();
             Ok(Box::new(utf8::take::<i32, _>(values, indices)?))
@@ -149,7 +236,7 @@ pub fn can_take(data_type: &DataType) -> bool {
         | DataType::Int32
         | DataType::Date32
         | DataType::Time32(_)
-        | DataType::Interval(IntervalUnit::YearMonth)
+        | DataType::Interval(_)
         | DataType::Int64
         | DataType::Date64
         | DataType::Time64(_)
@@ -159,7 +246,6 @@ pub fn can_take(data_type: &DataType) -> bool {
         | DataType::UInt16
         | DataType::UInt32
         | DataType::UInt64
-        | DataType::Float16
         | DataType::Float32
         | DataType::Float64
         | DataType::Decimal(_, _)
@@ -181,7 +267,10 @@ pub fn can_take(data_type: &DataType) -> bool {
                 | DataType::UInt32
                 | DataType::UInt64
         ),
-        _ => false,
+        DataType::Float16 => false,
+        DataType::FixedSizeBinary(_) => false,
+        DataType::FixedSizeList(_, _) => false,
+        DataType::Union(_) => false,
     }
 }
 

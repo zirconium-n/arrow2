@@ -138,6 +138,14 @@ impl Bitmap {
         get_bit_unchecked(&self.bytes, self.offset + i)
     }
 
+    /// Unsafely returns whether the bit at position `i` is set.
+    /// # Safety
+    /// Unsound iff `i >= self.len()`.
+    #[inline]
+    pub unsafe fn get_unchecked(&self, i: usize) -> bool {
+        get_bit_unchecked(&self.bytes, self.offset + i)
+    }
+
     /// Returns a pointer to the start of this [`Bitmap`] (ignores `offsets`)
     /// This pointer is allocated iff `self.len() > 0`.
     pub(crate) fn as_ptr(&self) -> std::ptr::NonNull<u8> {

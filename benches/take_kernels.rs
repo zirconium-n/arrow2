@@ -68,6 +68,9 @@ fn add_benchmark(c: &mut Criterion) {
     c.bench_function("take i32 nulls 1024", |b| {
         b.iter(|| bench_take(&values, &indices))
     });
+    c.bench_function("take_unchecked i32 nulls 1024", |b| {
+        b.iter(|| criterion::black_box(unsafe { take::take_unchecked(&values, &indices).unwrap() }))
+    });
 
     let values = create_boolean_array(512, 0.0, 0.5);
     let indices = create_random_index(512, 0.0);
