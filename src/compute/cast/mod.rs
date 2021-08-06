@@ -37,26 +37,12 @@ pub use timestamps::*;
 pub use utf8_to::*;
 
 /// options defining how Cast kernels behave
-#[derive(Clone, Copy, Debug)]
-pub struct CastOptions {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct CastOptions {
     /// default to false
     /// whether an overflowing cast should be converted to `None` (default), or be wrapped (i.e. `256i16 as u8 = 0` vectorized).
     /// Settings this to `true` is 5-6x faster for numeric types.
     wrapped: bool,
-}
-
-impl Default for CastOptions {
-    fn default() -> Self {
-        Self { wrapped: false }
-    }
-}
-
-impl CastOptions {
-    fn with_wrapped(&self, v: bool) -> Self {
-        let mut option = self.clone();
-        option.wrapped = v;
-        option
-    }
 }
 
 /// Returns true if this type is numeric: (UInt*, Unit*, or Float*).
@@ -313,7 +299,7 @@ fn cast_large_to_list(array: &ListArray<i64>, to_type: &DataType) -> ListArray<i
 /// type `to_type`, if possible.
 ///
 /// Behavior:
-/// * PrimitiveArray to PrimitiveArray: overflowing cast will be None
+/// * PrimitiveArray to PrimitiveArray: overflowing cast are `None`
 /// * Boolean to Utf8: `true` => '1', `false` => `0`
 /// * Utf8 to numeric: strings that can't be parsed to numbers return null, float strings
 ///   in integer casts return null
@@ -324,11 +310,6 @@ fn cast_large_to_list(array: &ListArray<i64>, to_type: &DataType) -> ListArray<i
 /// * Time32 and Time64: precision lost when going to higher interval
 /// * Timestamp and Date{32|64}: precision lost when going to higher interval
 /// * Temporal to/from backing primitive: zero-copy with data type change
-/// Unsupported Casts
-/// * To or from `StructArray`
-/// * List to primitive
-/// * Utf8 to boolean
-/// * Interval and duration
 pub fn cast(array: &dyn Array, to_type: &DataType) -> Result<Box<dyn Array>> {
     cast_with_options(array, to_type, CastOptions { wrapped: false })
 }
@@ -341,7 +322,7 @@ pub fn wrapping_cast(array: &dyn Array, to_type: &DataType) -> Result<Box<dyn Ar
 }
 
 #[inline]
-pub fn cast_with_options(
+fn cast_with_options(
     array: &dyn Array,
     to_type: &DataType,
     options: CastOptions,
@@ -354,7 +335,7 @@ pub fn cast_with_options(
         return Ok(clone(array));
     }
 
-    let as_options = options.with_wrapped(true);
+    let as_options = CastOptions { wrapped: true };
     match (from_type, to_type) {
         (Struct(_), _) => Err(ArrowError::NotYetImplemented(
             "Cannot cast from struct to other types".to_string(),
@@ -1087,9 +1068,7 @@ mod tests {
                         panic!("Cast should have not failed")
                     }
                 } else {
-                    assert!(
-                        cast_with_options(array.as_ref(), &d2, CastOptions::default()).is_err()
-                    );
+                    assert!(cast(array.as_ref(), &d2).is_err());
                 }
             });
     }

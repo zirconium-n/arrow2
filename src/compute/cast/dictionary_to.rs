@@ -25,7 +25,7 @@ macro_rules! key_cast {
 /// keys and casting the values to `values_type`.
 /// # Errors
 /// This function errors if the values are not castable to `values_type`
-pub fn dictionary_to_dictionary_values<K: DictionaryKey>(
+fn dictionary_to_dictionary_values_with_options<K: DictionaryKey>(
     from: &DictionaryArray<K>,
     values_type: &DataType,
     options: CastOptions,
@@ -35,6 +35,28 @@ pub fn dictionary_to_dictionary_values<K: DictionaryKey>(
 
     let values = cast_with_options(values.as_ref(), values_type, options)?.into();
     Ok(DictionaryArray::from_data(keys.clone(), values))
+}
+
+/// Casts a [`DictionaryArray`] to a new [`DictionaryArray`] by keeping the
+/// keys and casting the values to `values_type`.
+/// # Errors
+/// This function errors if the values are not castable to `values_type`
+pub fn dictionary_to_dictionary_values<K: DictionaryKey>(
+    from: &DictionaryArray<K>,
+    values_type: &DataType,
+) -> Result<DictionaryArray<K>> {
+    dictionary_to_dictionary_values_with_options(from, values_type, CastOptions { wrapped: false })
+}
+
+/// Casts a [`DictionaryArray`] to a new [`DictionaryArray`] by keeping the
+/// keys and casting the values to `values_type`.
+/// # Errors
+/// This function errors if the values are not castable to `values_type`
+pub fn wrapping_dictionary_to_dictionary_values<K: DictionaryKey>(
+    from: &DictionaryArray<K>,
+    values_type: &DataType,
+) -> Result<DictionaryArray<K>> {
+    dictionary_to_dictionary_values_with_options(from, values_type, CastOptions { wrapped: true })
 }
 
 /// Casts a [`DictionaryArray`] to a new [`DictionaryArray`] backed by a
