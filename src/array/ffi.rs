@@ -63,6 +63,9 @@ pub fn buffers_children_dictionary(array: &dyn Array) -> BuffersChildren {
             ffi_dyn!(array, PrimitiveArray<i32>)
         }
         DataType::Interval(IntervalUnit::DayTime) => ffi_dyn!(array, PrimitiveArray<days_ms>),
+        DataType::Interval(IntervalUnit::MonthDayNano) => {
+            ffi_dyn!(array, PrimitiveArray<months_days_ns>)
+        }
         DataType::Int64
         | DataType::Date64
         | DataType::Time64(_)

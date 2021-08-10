@@ -21,7 +21,7 @@ use std::any::Any;
 use std::fmt::Display;
 
 use crate::error::Result;
-use crate::types::days_ms;
+use crate::types::{days_ms, months_days_ns};
 use crate::{
     bitmap::{Bitmap, MutableBitmap},
     datatypes::{DataType, IntervalUnit},
@@ -163,6 +163,9 @@ impl Display for dyn Array {
             DataType::Interval(IntervalUnit::DayTime) => {
                 fmt_dyn!(self, PrimitiveArray<days_ms>, f)
             }
+            DataType::Interval(IntervalUnit::MonthDayNano) => {
+                fmt_dyn!(self, PrimitiveArray<months_days_ns>, f)
+            }
             DataType::Int64
             | DataType::Date64
             | DataType::Time64(_)
@@ -216,6 +219,9 @@ pub fn new_empty_array(data_type: DataType) -> Box<dyn Array> {
         }
         DataType::Interval(IntervalUnit::DayTime) => {
             Box::new(PrimitiveArray::<days_ms>::new_empty(data_type))
+        }
+        DataType::Interval(IntervalUnit::MonthDayNano) => {
+            Box::new(PrimitiveArray::<months_days_ns>::new_empty(data_type))
         }
         DataType::Int64
         | DataType::Date64
@@ -271,6 +277,9 @@ pub fn new_null_array(data_type: DataType, length: usize) -> Box<dyn Array> {
         DataType::Interval(IntervalUnit::DayTime) => {
             Box::new(PrimitiveArray::<days_ms>::new_null(data_type, length))
         }
+        DataType::Interval(IntervalUnit::MonthDayNano) => Box::new(
+            PrimitiveArray::<months_days_ns>::new_null(data_type, length),
+        ),
         DataType::Int64
         | DataType::Date64
         | DataType::Time64(_)
@@ -332,6 +341,9 @@ pub fn clone(array: &dyn Array) -> Box<dyn Array> {
             clone_dyn!(array, PrimitiveArray<i32>)
         }
         DataType::Interval(IntervalUnit::DayTime) => clone_dyn!(array, PrimitiveArray<days_ms>),
+        DataType::Interval(IntervalUnit::MonthDayNano) => {
+            clone_dyn!(array, PrimitiveArray<months_days_ns>)
+        }
         DataType::Int64
         | DataType::Date64
         | DataType::Time64(_)

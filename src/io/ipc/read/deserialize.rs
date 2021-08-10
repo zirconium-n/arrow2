@@ -12,7 +12,10 @@ use std::{
 use crate::datatypes::{DataType, IntervalUnit};
 use crate::error::Result;
 use crate::io::ipc::gen::Message::BodyCompression;
-use crate::{array::*, types::days_ms};
+use crate::{
+    array::*,
+    types::{days_ms, months_days_ns},
+};
 
 use super::super::gen;
 use super::array::*;
@@ -95,6 +98,16 @@ pub fn read<R: Read + Seek>(
         )
         .map(|x| Arc::new(x) as Arc<dyn Array>),
         DataType::Interval(IntervalUnit::DayTime) => read_primitive::<days_ms, _>(
+            field_nodes,
+            data_type,
+            buffers,
+            reader,
+            block_offset,
+            is_little_endian,
+            compression,
+        )
+        .map(|x| Arc::new(x) as Arc<dyn Array>),
+        DataType::Interval(IntervalUnit::MonthDayNano) => read_primitive::<months_days_ns, _>(
             field_nodes,
             data_type,
             buffers,

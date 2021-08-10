@@ -2,7 +2,7 @@ use std::unimplemented;
 
 use crate::{
     datatypes::{DataType, IntervalUnit},
-    types::{days_ms, NativeType},
+    types::{days_ms, months_days_ns, NativeType},
 };
 
 use super::{
@@ -223,6 +223,11 @@ pub fn equal(lhs: &dyn Array, rhs: &dyn Array) -> bool {
             let lhs = lhs.as_any().downcast_ref().unwrap();
             let rhs = rhs.as_any().downcast_ref().unwrap();
             primitive::equal::<days_ms>(lhs, rhs)
+        }
+        DataType::Interval(IntervalUnit::MonthDayNano) => {
+            let lhs = lhs.as_any().downcast_ref().unwrap();
+            let rhs = rhs.as_any().downcast_ref().unwrap();
+            primitive::equal::<months_days_ns>(lhs, rhs)
         }
         DataType::Float16 => unreachable!(),
         DataType::Float32 => {

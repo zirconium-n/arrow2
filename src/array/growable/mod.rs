@@ -127,6 +127,9 @@ pub fn make_growable<'a>(
         DataType::Interval(IntervalUnit::DayTime) => {
             dyn_growable!(days_ms, arrays, use_validity, capacity)
         }
+        DataType::Interval(IntervalUnit::MonthDayNano) => {
+            dyn_growable!(months_days_ns, arrays, use_validity, capacity)
+        }
         DataType::Decimal(_, _) => dyn_growable!(i128, arrays, use_validity, capacity),
         DataType::UInt8 => dyn_growable!(u8, arrays, use_validity, capacity),
         DataType::UInt16 => dyn_growable!(u16, arrays, use_validity, capacity),

@@ -1,4 +1,8 @@
-use crate::{datatypes::*, temporal_conversions, types::days_ms};
+use crate::{
+    datatypes::*,
+    temporal_conversions,
+    types::{days_ms, months_days_ns},
+};
 
 use super::super::{display_fmt, Array};
 use super::PrimitiveArray;
@@ -154,6 +158,18 @@ impl std::fmt::Display for PrimitiveArray<days_ms> {
         let iter = self.iter().map(|x| {
             x.copied()
                 .map(|x| format!("{}d{}ms", x.days(), x.milliseconds()))
+        });
+        display_fmt(iter, head, f, new_lines)
+    }
+}
+
+impl std::fmt::Display for PrimitiveArray<months_days_ns> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let new_lines = false;
+        let head = &format!("{}", self.data_type());
+        let iter = self.iter().map(|x| {
+            x.copied()
+                .map(|x| format!("{}m{}d{}ns", x.months(), x.days(), x.ns()))
         });
         display_fmt(iter, head, f, new_lines)
     }

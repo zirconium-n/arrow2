@@ -25,7 +25,7 @@ use crate::{
     endianess::is_native_little_endian,
     io::ipc::gen::Message,
     trusted_len::TrustedLen,
-    types::{days_ms, NativeType},
+    types::{days_ms, months_days_ns, NativeType},
 };
 
 use crate::io::ipc::gen::Schema;
@@ -411,6 +411,9 @@ pub fn write(
         }
         DataType::Interval(IntervalUnit::DayTime) => {
             write_primitive::<days_ms>(array, buffers, arrow_data, offset, is_little_endian)
+        }
+        DataType::Interval(IntervalUnit::MonthDayNano) => {
+            write_primitive::<months_days_ns>(array, buffers, arrow_data, offset, is_little_endian)
         }
         DataType::UInt8 => {
             write_primitive::<u8>(array, buffers, arrow_data, offset, is_little_endian)

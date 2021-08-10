@@ -1,6 +1,10 @@
 use std::any::Any;
 
-use crate::{array::*, datatypes::*, types::days_ms};
+use crate::{
+    array::*,
+    datatypes::*,
+    types::{days_ms, months_days_ns},
+};
 
 mod equal;
 mod primitive;
@@ -101,6 +105,7 @@ pub fn new_scalar(array: &dyn Array, index: usize) -> Box<dyn Scalar> {
         }
         Int64 | Date64 | Time64(_) | Duration(_) | Timestamp(_, _) => dyn_new!(array, index, i64),
         Interval(IntervalUnit::DayTime) => dyn_new!(array, index, days_ms),
+        Interval(IntervalUnit::MonthDayNano) => dyn_new!(array, index, months_days_ns),
         UInt8 => dyn_new!(array, index, u8),
         UInt16 => dyn_new!(array, index, u16),
         UInt32 => dyn_new!(array, index, u32),

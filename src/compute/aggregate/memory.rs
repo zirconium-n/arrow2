@@ -1,7 +1,7 @@
 use crate::array::*;
 use crate::bitmap::Bitmap;
 use crate::datatypes::{DataType, IntervalUnit};
-use crate::types::days_ms;
+use crate::types::{days_ms, months_days_ns};
 
 fn validity_size(validity: &Option<Bitmap>) -> usize {
     validity.as_ref().map(|b| b.as_slice().len()).unwrap_or(0)
@@ -72,6 +72,7 @@ pub fn estimated_bytes_size(array: &dyn Array) -> usize {
         Float64 => dyn_primitive!(array, f64),
         Decimal(_, _) => dyn_primitive!(array, i128),
         Interval(IntervalUnit::DayTime) => dyn_primitive!(array, days_ms),
+        Interval(IntervalUnit::MonthDayNano) => dyn_primitive!(array, months_days_ns),
         Binary => dyn_binary!(array, BinaryArray<i32>, i32),
         FixedSizeBinary(_) => {
             let array = array
