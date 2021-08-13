@@ -355,21 +355,3 @@ impl months_days_ns {
         self.2
     }
 }
-
-impl Ord for months_days_ns {
-    fn cmp(&self, other: &Self) -> Ordering {
-        match self.months().cmp(&other.months()) {
-            Ordering::Equal => match self.days().cmp(&other.days()) {
-                Ordering::Equal => self.ns().cmp(&other.ns()),
-                other => other,
-            },
-            other => other,
-        }
-    }
-}
-
-impl PartialOrd for months_days_ns {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
